@@ -55,6 +55,7 @@ class Bot():
 
         self.config = Config(config_path, config_section)
         self.database = Database(database_path)
+        self.latest_comic_number = int(self.get_latest_comic())  # to initialize to latest comic.
 
     def main(self, error_sleep_time=15):
         """
@@ -106,7 +107,7 @@ class Bot():
 
     def handle_comment(self, comment, strict_match=True):
         """
-        Resposible for calling all the functions which analyze and respond to comments in /r/xkcd
+        Responsible for calling all the functions which analyze and respond to comments in /r/xkcd
 
         :param strict_match: Passed as an argument to the match_numbers method
         """
@@ -122,7 +123,7 @@ class Bot():
         for comic_id in comic_ids:
             if len(responses) > RESPONSE_COUNT_LIMIT:
                 logger.warning(
-                    f"Exceeded the reponse count limit of {RESPONSE_COUNT_LIMIT} responses")
+                    f"Exceeded the response count limit of {RESPONSE_COUNT_LIMIT} responses")
                 break
 
             comic = self.get_comic(comic_id)
@@ -138,7 +139,7 @@ class Bot():
         for comic_title in comic_titles:
             if len(responses) > RESPONSE_COUNT_LIMIT:
                 logger.warning(
-                    f"Exceeded the reponse count limit of {RESPONSE_COUNT_LIMIT} responses")
+                    f"Exceeded the response count limit of {RESPONSE_COUNT_LIMIT} responses")
                 break
 
             comic = self.get_comic_by_title(comic_title)
@@ -360,12 +361,27 @@ class Bot():
                     "img": "https://www.explainxkcd.com/wiki/images/9/92/not_found.png",
                     "num": 404}
 
+        if int(number) > self.latest_comic_number:
+            # self.latest_comic_number = self.get_latest_comic() #check in case bot has been running since a new
+            # comic has been posted if int(number) > self.latest_comic_number:
+            logger.info("Requested comic number larger than latest comic")
+            return {"title": "Does not exist yet!",
+                    "alt": "&nbsp;",
+                    "img": "https://www.explainxkcd.com/wiki/images/9/92/not_found.png",
+                    "num": 404}
+
         url = f"http://xkcd.com/{number}/info.0.json"
         response = requests.get(url)
 
         if response.status_code == 404:
             logger.warning(f"Comic {number} returned a 404 status code")
             return None
+
+        # Only server code 200 appears to return a correct JSON object to handle.
+        if response.status_code != 200:
+            logger.warning(f"Server response code not 200 - no JSON object returned.")
+            return None
+
         elif response is None:
             logger.warning(f"Comic {number} returned none")
             return None
